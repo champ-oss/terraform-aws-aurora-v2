@@ -80,6 +80,11 @@ jobs:
         working-directory: examples/${{ matrix.EXAMPLES }}
     steps:
       - uses: actions/checkout@v4
+      - name: Debug OIDC context
+        run: |
+          echo "repository=${{ github.repository }}"
+          echo "ref=${{ github.ref }}"
+          echo "event=${{ github.event_name }}"
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_TEST_ROLE_TO_ASSUME }}
