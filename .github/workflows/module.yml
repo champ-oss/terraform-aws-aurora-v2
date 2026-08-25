@@ -17,6 +17,8 @@ env:
   TF_IN_AUTOMATION: true
   TF_STATE_BUCKET: "env-tfbackend-oss-backend"
   AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+  GITHUB_TOKEN: ${{ secrets.CHAMP_TESTING_GITHUB_TOKEN }}
+  GITHUB_OWNER: "champ-testing"
 
 jobs:
   # Fully mocked. No AWS credentials, no resources, no cost, ~10s. Gates the
