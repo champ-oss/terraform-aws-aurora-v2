@@ -69,7 +69,7 @@ run "other_region_azs" {
   }
 
   variables {
-    availability_zones = ["us-gov-west-1a", "us-gov-west-1b", "us-gov-west-1c"]
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
     vpc_cidr           = "10.42.0.0/16"
   }
 

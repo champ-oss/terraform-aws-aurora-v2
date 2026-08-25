@@ -94,13 +94,13 @@ run "variables_reach_the_cluster" {
   command = apply
 
   variables {
-    database_name  = "billing"
+    database_name  = "this"
     engine_version = "8.0.mysql_aurora.3.09.0"
     kms_key_id     = "arn:aws:kms:us-east-1:111122223333:key/abcd-1234"
   }
 
   assert {
-    condition     = aws_rds_cluster.this[0].database_name == "billing"
+    condition     = aws_rds_cluster.this[0].database_name == "this"
     error_message = "database_name must reach the cluster"
   }
 
