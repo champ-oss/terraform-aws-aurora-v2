@@ -19,7 +19,7 @@ terraform {
 variable "availability_zones" {
   description = "AZs to place the example subnets in. Two minimum: a DB subnet group spans at least two AZs"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-2a", "us-east-2b"]
 }
 
 variable "vpc_cidr" {
