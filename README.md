@@ -4,6 +4,37 @@ Minimal, opinionated Aurora Serverless v2 module: RDS cluster + instances, a
 security group, an SSM SecureString holding the master password, and the
 enhanced monitoring IAM role the cluster instances require.
 
+## Usage
+
+| Requirement | Version |
+| --- | --- |
+| terraform | `>= 1.5.0` |
+| hashicorp/aws | `>= 5.96.0` |
+| hashicorp/random | `>= 3.6.0` |
+
+```hcl
+module "aurora" {
+  source = "./modules/terraform-aws-aurora-v2"
+
+  vpc_id             = aws_vpc.this.id
+  private_subnet_ids = aws_subnet.private[*].id
+
+  cluster_identifier_prefix = "mysqldb-prod"
+  cluster_instance_count    = 2
+  database_name             = "app"
+  min_capacity              = 0.5
+  max_capacity              = 8
+
+  source_security_group_ids = [aws_security_group.client.id]
+
+  git  = "my-repo"
+  tags = { Environment = "prod" }
+}
+```
+
+`examples/complete` is a runnable version of the same thing: it builds its own
+VPC, subnets, and client security group first.
+
 ## Hardcoded by design
 
 v2 exposes 20 variables instead of 46. Everything else is hardcoded in the
@@ -39,23 +70,40 @@ The managed policy ARN for enhanced monitoring is built from
 
 ## The variables that remain
 
-Required: `vpc_id`, `private_subnet_ids`.
+20 variables, 2 of them required.
 
-Per-environment: `cluster_identifier_prefix`, `cluster_instance_count`,
-`database_name`, `engine_version`, `git`, `tags`, `enabled`, `protect`,
-`min_capacity`, `max_capacity`, `kms_key_id`, `skip_final_snapshot`.
+| Variable | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `vpc_id` | `string` | **required** | VPC the security group is created in |
+| `private_subnet_ids` | `list(string)` | **required** | Subnets for the DB subnet group; at least two AZs |
+| `cluster_identifier_prefix` | `string` | `"mysqldb-test"` | Name prefix for the cluster |
+| `cluster_instance_count` | `number` | `1` | Number of instances; more than one gives HA |
+| `database_name` | `string` | `"this"` | Initial database created on the cluster |
+| `engine_version` | `string` | `"8.0.mysql_aurora.3.10.3"` | Aurora MySQL version, create time only |
+| `min_capacity` | `number` | `0.5` | ACU floor; `0` enables auto pause |
+| `max_capacity` | `number` | `8` | ACU ceiling; roughly 2 GiB memory per ACU |
+| `enabled` | `bool` | `true` | Set to `false` to create no resources |
+| `protect` | `bool` | `true` | Deletion protection, and the inverse of `apply_immediately` |
+| `skip_final_snapshot` | `bool` | `false` | Skip the final snapshot on destroy |
+| `kms_key_id` | `string` | `null` | CMK ARN; null uses the AWS managed `aws/rds` key |
+| `git` | `string` | `"terraform-aws-aurora"` | Name of the calling Git repo, merged into tags |
+| `tags` | `map(string)` | `{}` | Extra tags to merge onto every resource |
+| `cidr_blocks` | `list(string)` | `["10.0.0.0/8"]` | One ingress rule per CIDR |
+| `source_security_group_ids` | `list(string)` | `[]` | One ingress rule per source security group |
+| `egress_cidr_blocks` | `list(string)` | `["10.0.0.0/8"]` | One egress rule per CIDR; `[]` for no egress |
+| `db_cluster_parameter_group_name` | `string` | `null` | Escape hatch for cluster engine settings |
+| `db_instance_parameter_group_name` | `string` | `null` | Escape hatch for instance engine settings |
+| `snapshot_identifier` | `string` | `null` | Snapshot ARN to restore from at create time |
 
-Networking: `cidr_blocks`, `source_security_group_ids`, `egress_cidr_blocks`.
+The security group rules fan out with `for_each` because
+`aws_vpc_security_group_ingress_rule` takes a single CIDR or a single
+referenced security group per rule. `source_security_group_ids` is keyed by
+list index so a security group created in the same apply can be passed in;
+append to that list rather than inserting into it.
 
-Escape hatches: `db_cluster_parameter_group_name`,
-`db_instance_parameter_group_name` for engine settings the module does not
-expose.
-
-Restore: `snapshot_identifier` only. There is no `restore_to_point_in_time`
-block; do a PITR restore out of band, then adopt the result.
-
-The snapshot restore process and its precondition are carried over byte for
-byte from terraform-aws-aurora v1:
+There is no `restore_to_point_in_time` block. Do a PITR restore out of band,
+then adopt the result. The snapshot restore process and its precondition are
+carried over byte for byte from terraform-aws-aurora v1:
 
 - `snapshot_identifier = <snapshot ARN>` with `protect = false` and
   `skip_final_snapshot = false`, and apply
@@ -77,9 +125,6 @@ create time.
 The SSM password parameter has no `key_id`. A `SecureString` without one is
 encrypted under the AWS managed `alias/aws/ssm` key, which is why there is no
 `ssm_kms_key_id` variable.
-
-`protect` is a single knob: it sets `deletion_protection` and the inverse of
-`apply_immediately`.
 
 ## Testing
 
@@ -126,36 +171,3 @@ Three limits worth knowing:
 For that last class, the workflow still has a real apply and destroy of
 `examples/complete`, now **manual only** (`gh workflow run module`). Push and
 schedule stop at the mocked suite. Dispatch it before tagging a release.
-
-## Differences from terraform-aws-aurora
-
-Dropped (compose these outside the module): KMS key creation, Secrets Manager,
-S3 bucket + export, DMS endpoint, Glue connection, RAM share, shared snapshots,
-AWS Backup, EventBridge, SNS, CloudWatch metric alarms, and the `moved` blocks.
-
-Also dropped, because they only apply to cluster shapes this module does not
-build: `availability_zones`, `backtrack_window`, `db_cluster_instance_class`,
-`iops`, `storage_type`, `network_type`, `global_cluster_identifier`,
-`enable_global_write_forwarding`, `replication_source_identifier`,
-`source_region`, and `iam_roles` (use `aws_rds_cluster_role_association`).
-
-The `restore_to_point_in_time` block is gone along with
-`source_cluster_identifier`, `restore_to_time`, `restore_type`, and
-`use_latest_restorable_time`.
-
-Security group rules now use `aws_vpc_security_group_ingress_rule` and
-`aws_vpc_security_group_egress_rule` instead of the deprecated
-`aws_security_group_rule`. These take a single CIDR or a single referenced
-security group per rule, so the module fans out with `for_each`:
-
-- `cidr_blocks` -> one ingress rule per CIDR
-- `source_security_group_ids` (replaces `source_security_group_id` and
-  `enable_source_security_group`) -> one ingress rule per source SG, keyed by
-  list index so a security group created in the same apply can be passed in;
-  append to the list rather than inserting into it
-- `egress_cidr_blocks` -> one egress rule per CIDR
-
-There is no in-place migration from `aws_security_group_rule`; the old rules
-must be destroyed and the new ones created, or imported by rule ID.
-
-`egress_cidr_blocks` defaults to `["10.0.0.0/8"]`, not `0.0.0.0/0`.
