@@ -52,6 +52,11 @@ run "hardcoded_posture" {
   }
 
   assert {
+    condition     = aws_rds_cluster.this[0].database_name == "this"
+    error_message = "database_name must be hardcoded to this"
+  }
+
+  assert {
     condition     = aws_rds_cluster.this[0].storage_encrypted == true
     error_message = "storage must be encrypted"
   }
@@ -101,6 +106,13 @@ run "hardcoded_posture" {
   assert {
     condition     = aws_rds_cluster_instance.this[0].monitoring_interval == 60
     error_message = "enhanced monitoring must be on at 60s"
+  }
+
+  # The name tag is derived from cluster_identifier_prefix rather than taken
+  # from a variable of its own.
+  assert {
+    condition     = aws_rds_cluster.this[0].tags["name"] == "mysqldb-test"
+    error_message = "the name tag must be derived from cluster_identifier_prefix"
   }
 
   # protect defaults to true, which must also pin apply_immediately off.

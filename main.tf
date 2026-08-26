@@ -19,6 +19,7 @@ locals {
 
   instance_class = "db.serverless"
   port           = 3306
+  database_name  = "this"
 
   # credentials
   master_username = "root"
@@ -67,9 +68,15 @@ locals {
 
   snapshot_timestamp = formatdate("'${local.cluster_identifier_prefix}-'YYYYMMDDHHmmss", timestamp())
 
+  # name is derived rather than passed in. cluster_identifier_prefix is already
+  # the caller's name for this cluster, so a separate variable was two inputs
+  # for one idea and two chances to disagree with each other. This must stay
+  # derived from var.cluster_identifier_prefix and not read
+  # aws_rds_cluster.this[0].cluster_identifier: local.tags is applied to that
+  # cluster, so reading it back would be a cycle.
   tags = {
     cost    = "aurora"
     creator = "terraform"
-    git     = var.git
+    name    = local.cluster_identifier_prefix
   }
 }

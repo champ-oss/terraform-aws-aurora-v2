@@ -1,10 +1,14 @@
 resource "aws_ssm_parameter" "this" {
   count       = var.enabled ? 1 : 0
-  name        = "/${var.git}/mysql/${aws_rds_cluster.this[0].cluster_identifier}/password"
+  name        = "/mysql/${aws_rds_cluster.this[0].cluster_identifier}/password"
   description = "mysql password"
-  # No key_id, so this is encrypted with the AWS managed alias/aws/ssm key.
-  type  = "SecureString"
-  value = random_password.password[0].result
+  # Null key_id falls back to the AWS managed alias/aws/ssm key, which has no
+  # customer controlled key policy and no rotation you can evidence. Pass a CMK
+  # for any environment that has to attest to SC-12 and SC-28 over the
+  # credential store.
+  key_id = var.ssm_kms_key_id
+  type   = "SecureString"
+  value  = random_password.password[0].result
   tags = merge({
     master_username    = aws_rds_cluster.this[0].master_username
     port               = aws_rds_cluster.this[0].port

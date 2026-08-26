@@ -55,8 +55,8 @@ run "complete" {
   }
 
   assert {
-    condition     = startswith(module.this.password_ssm_name, "/terraform-aws-aurora/mysql/")
-    error_message = "the example must publish the password under the default git prefix"
+    condition     = startswith(module.this.password_ssm_name, "/mysql/")
+    error_message = "the example must publish the password under the /mysql/ prefix"
   }
 }
 

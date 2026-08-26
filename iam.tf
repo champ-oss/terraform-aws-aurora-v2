@@ -3,7 +3,7 @@
 # (S3 export, snapshot sharing, DMS) lives outside the module.
 resource "aws_iam_role" "rds_enhanced_monitoring" {
   count              = var.enabled ? 1 : 0
-  name_prefix        = "rds-enhanced-monitoring-"
+  name_prefix        = "${local.cluster_identifier_prefix}-"
   assume_role_policy = data.aws_iam_policy_document.rds_enhanced_monitoring.json
   tags               = merge(local.tags, var.tags)
 }

@@ -49,21 +49,11 @@ resource "aws_vpc_security_group_ingress_rule" "from_cidr" {
   }
 }
 
-# Self reference so cluster members can reach each other.
-resource "aws_vpc_security_group_ingress_rule" "self" {
-  count                        = var.enabled ? 1 : 0
-  description                  = "ingress self reference"
-  security_group_id            = aws_security_group.rds[0].id
-  referenced_security_group_id = aws_security_group.rds[0].id
-  ip_protocol                  = "tcp"
-  from_port                    = 0
-  to_port                      = 65535
-  tags                         = merge(local.tags, var.tags)
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+# There is deliberately no self referencing ingress rule. Aurora replicates
+# through the shared cluster storage volume rather than between the instance
+# network interfaces, so cluster members do not need to reach each other
+# through this security group. Earlier revisions carried one at tcp 0-65535,
+# which was surface with nothing behind it.
 
 # Egress. One rule per CIDR. ip_protocol "-1" means all protocols and ports, and
 # from_port/to_port must be omitted when it is used.

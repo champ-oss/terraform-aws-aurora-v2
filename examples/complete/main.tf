@@ -23,7 +23,7 @@ variable "availability_zones" {
 }
 
 variable "vpc_cidr" {
-  description = "CIDR for the example VPC. Stays inside 10.0.0.0/8 so the module's default ingress and egress rules cover it"
+  description = "CIDR for the example VPC. The module defaults to no CIDR based ingress or egress, so this only has to be large enough to carve the subnets out of"
   type        = string
   default     = "10.0.0.0/16"
 }

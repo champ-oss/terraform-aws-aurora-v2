@@ -1,10 +1,16 @@
 # Only genuine per-cluster inputs live here. Anything that should be the same
 # for every Aurora cluster this module builds is hardcoded in main.tf.
 
+# Defaults to deny. Prefer source_security_group_ids: a security group reference
+# names an identity rather than an address range, which is what SC-7 and AC-4
+# want to see. Use CIDRs only where a security group reference cannot reach --
+# Site-to-Site VPN and Transit Gateway traffic arrives with its original source
+# address and no security group in the path -- and then scope them to the
+# smallest subnet that needs the port, never the whole tunnel.
 variable "cidr_blocks" {
-  description = "CIDR blocks allowed to connect to the database port. One aws_vpc_security_group_ingress_rule is created per entry"
+  description = "CIDR blocks allowed to connect to the database port. One aws_vpc_security_group_ingress_rule is created per entry. Defaults to none"
   type        = list(string)
-  default     = ["10.0.0.0/8"]
+  default     = []
 }
 
 variable "cluster_identifier_prefix" {
@@ -19,12 +25,6 @@ variable "cluster_instance_count" {
   default     = 1
 }
 
-variable "database_name" {
-  description = "https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/rds_cluster#database_name"
-  type        = string
-  default     = "this"
-}
-
 variable "db_cluster_parameter_group_name" {
   description = "Cluster parameter group. The escape hatch for engine settings the module does not expose"
   type        = string
@@ -37,10 +37,16 @@ variable "db_instance_parameter_group_name" {
   default     = null
 }
 
+# Defaults to no egress, which is the correct posture: Aurora never initiates a
+# connection to a client, and the managed features this module turns on
+# (CloudWatch Logs export, KMS, enhanced monitoring, Performance Insights) all
+# traverse the AWS managed path rather than this security group. A cluster with
+# zero egress rules works. Only add entries for something you have proven needs
+# them, such as a MySQL federated engine or an outbound S3 export path.
 variable "egress_cidr_blocks" {
-  description = "CIDR blocks the cluster may egress to. One aws_vpc_security_group_egress_rule is created per entry. Set to [] for no egress"
+  description = "CIDR blocks the cluster may egress to. One aws_vpc_security_group_egress_rule is created per entry. Defaults to no egress"
   type        = list(string)
-  default     = ["10.0.0.0/8"]
+  default     = []
 }
 
 variable "enabled" {
@@ -53,12 +59,6 @@ variable "engine_version" {
   description = "Aurora MySQL version. Only applies at create time: AWS applies minor version upgrades in the maintenance window, so this is in ignore_changes and the live cluster drifts ahead of it"
   type        = string
   default     = "8.0.mysql_aurora.3.10.3"
-}
-
-variable "git" {
-  description = "Name of the Git repo"
-  type        = string
-  default     = "terraform-aws-aurora"
 }
 
 variable "kms_key_id" {
@@ -106,6 +106,12 @@ variable "source_security_group_ids" {
   description = "Security groups allowed to connect to the database port. One aws_vpc_security_group_ingress_rule is created per entry"
   type        = list(string)
   default     = []
+}
+
+variable "ssm_kms_key_id" {
+  description = "KMS key id, alias, or ARN used to encrypt the master password SSM parameter. Leave null to use the AWS managed alias/aws/ssm key"
+  type        = string
+  default     = null
 }
 
 variable "tags" {
